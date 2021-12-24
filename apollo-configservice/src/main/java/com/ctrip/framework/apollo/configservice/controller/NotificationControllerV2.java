@@ -53,6 +53,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.DeferredResult;
 
 import java.lang.reflect.Type;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -113,7 +114,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
       @RequestParam(value = "dataCenter", required = false) String dataCenter,
       @RequestParam(value = "ip", required = false) String clientIp) {
     List<ApolloConfigNotification> notifications = null;
-
+    System.out.println(LocalDateTime.now() + ">>NotificationControllerV2>>收到来自客户端的长轮询请求，hold住连接");
     try {
       notifications =
           gson.fromJson(notificationsAsString, notificationsTypeReference);
@@ -131,7 +132,8 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
       throw new BadRequestException("Invalid format of notifications: " + notificationsAsString);
     }
     
-    DeferredResultWrapper deferredResultWrapper = new DeferredResultWrapper(bizConfig.longPollingTimeoutInMilli());
+    // DeferredResultWrapper deferredResultWrapper = new DeferredResultWrapper(bizConfig.longPollingTimeoutInMilli());
+    DeferredResultWrapper deferredResultWrapper = new DeferredResultWrapper(10000);
     Set<String> namespaces = Sets.newHashSetWithExpectedSize(filteredNotifications.size());
     Map<String, Long> clientSideNotifications = Maps.newHashMapWithExpectedSize(filteredNotifications.size());
     
@@ -156,7 +158,9 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
      * when method handleMessage is executed between check and set deferredResult.
      */
     deferredResultWrapper
-          .onTimeout(() -> logWatchedKeys(watchedKeys, "Apollo.LongPoll.TimeOutKeys"));
+          .onTimeout(() ->{
+            System.out.println(LocalDateTime.now() + ">>NotificationControllerV2>>长轮询超时了，返回304给客户端");
+            logWatchedKeys(watchedKeys, "Apollo.LongPoll.TimeOutKeys");});
 
     deferredResultWrapper.onCompletion(() -> {
       //unregister all keys
@@ -194,6 +198,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
             latestReleaseMessages);
 
     if (!CollectionUtils.isEmpty(newNotifications)) {
+      System.out.println(LocalDateTime.now() + ">>NotificationControllerV2>>配置有变化了，返回结果给客户端");
       deferredResultWrapper.setResult(newNotifications);
     }
 
@@ -287,6 +292,7 @@ public class NotificationControllerV2 implements ReleaseMessageListener {
     configNotification.addMessage(content, message.getId());
 
     //do async notification if too many clients
+    // 避免惊群效应
     if (results.size() > bizConfig.releaseMessageNotificationBatch()) {
       largeNotificationBatchExecutorService.submit(() -> {
         logger.debug("Async notify {} clients for key {} with batch {}", results.size(), content,

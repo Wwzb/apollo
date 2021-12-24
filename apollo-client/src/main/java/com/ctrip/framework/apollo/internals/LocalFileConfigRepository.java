@@ -27,6 +27,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.Properties;
 
 import org.slf4j.Logger;
@@ -141,12 +142,14 @@ public class LocalFileConfigRepository extends AbstractConfigRepository
   @Override
   protected void sync() {
     //sync with upstream immediately
+    System.out.println(LocalDateTime.now() + ">>LocalFileConfigRepository>>尝试从远程服务读取配置");
     boolean syncFromUpstreamResultSuccess = trySyncFromUpstream();
 
     if (syncFromUpstreamResultSuccess) {
+      System.out.println(LocalDateTime.now() + ">>LocalFileConfigRepository>>从远程服务读取配置成功");
       return;
     }
-
+    System.out.println(LocalDateTime.now() + ">>LocalFileConfigRepository>>从远程服务读取配置失败，读取本地文件配置");
     Transaction transaction = Tracer.newTransaction("Apollo.ConfigService", "syncLocalConfig");
     Throwable exception = null;
     try {
@@ -196,6 +199,7 @@ public class LocalFileConfigRepository extends AbstractConfigRepository
   }
 
   private Properties loadFromLocalCacheFile(File baseDir, String namespace) throws IOException {
+    System.out.println(LocalDateTime.now() + ">>LocalFileConfigRepository>>从文件中读取配置");
     Preconditions.checkNotNull(baseDir, "Basedir cannot be null");
 
     File file = assembleLocalCacheFile(baseDir, namespace);
@@ -231,6 +235,7 @@ public class LocalFileConfigRepository extends AbstractConfigRepository
   }
 
   void persistLocalCacheFile(File baseDir, String namespace) {
+    System.out.println(LocalDateTime.now() + ">>LocalFileConfigRepository>>保存配置到文件");
     if (baseDir == null) {
       return;
     }

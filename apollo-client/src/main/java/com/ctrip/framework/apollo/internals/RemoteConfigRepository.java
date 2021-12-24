@@ -46,6 +46,8 @@ import com.google.common.escape.Escaper;
 import com.google.common.net.UrlEscapers;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.gson.Gson;
+
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -104,9 +106,9 @@ public class RemoteConfigRepository extends AbstractConfigRepository {
     m_configNeedForceRefresh = new AtomicBoolean(true);
     m_loadConfigFailSchedulePolicy = new ExponentialSchedulePolicy(m_configUtil.getOnErrorRetryInterval(),
         m_configUtil.getOnErrorRetryInterval() * 8);
-    this.trySync();
-    this.schedulePeriodicRefresh();
-    this.scheduleLongPollingRefresh();
+    this.trySync(); // 先拉一次
+    this.schedulePeriodicRefresh(); // 定时拉取
+    this.scheduleLongPollingRefresh(); // 长轮询
   }
 
   @Override
@@ -136,11 +138,14 @@ public class RemoteConfigRepository extends AbstractConfigRepository {
           public void run() {
             Tracer.logEvent("Apollo.ConfigService", String.format("periodicRefresh: %s", m_namespace));
             logger.debug("refresh config for namespace: {}", m_namespace);
+            System.out.println(LocalDateTime.now() + ">>RemoteConfigRepository>>客户端开始定时轮询");
             trySync();
             Tracer.logEvent("Apollo.Client.Version", Apollo.VERSION);
           }
-        }, m_configUtil.getRefreshInterval(), m_configUtil.getRefreshInterval(),
-        m_configUtil.getRefreshIntervalTimeUnit());
+        },
+            // m_configUtil.getRefreshInterval(), m_configUtil.getRefreshInterval(), m_configUtil.getRefreshIntervalTimeUnit()
+            30, 33, TimeUnit.SECONDS
+    );
   }
 
   @Override
@@ -199,6 +204,7 @@ public class RemoteConfigRepository extends AbstractConfigRepository {
     String url = null;
     retryLoopLabel:
     for (int i = 0; i < maxRetries; i++) {
+      System.out.println(LocalDateTime.now() + ">>RemoteConfigRepository>>开始从服务端读取配置");
       List<ServiceDTO> randomConfigServices = Lists.newLinkedList(configServices);
       Collections.shuffle(randomConfigServices);
       //Access the server which notifies the client first
@@ -242,6 +248,7 @@ public class RemoteConfigRepository extends AbstractConfigRepository {
           transaction.setStatus(Transaction.SUCCESS);
 
           if (response.getStatusCode() == 304) {
+            System.out.println(LocalDateTime.now() + ">>RemoteConfigRepository>>配置没有变化返回缓存的");
             logger.debug("Config server responds with 304 HTTP status code.");
             return m_configCache.get();
           }
@@ -249,7 +256,7 @@ public class RemoteConfigRepository extends AbstractConfigRepository {
           ApolloConfig result = response.getBody();
 
           logger.debug("Loaded config for {}: {}", m_namespace, result);
-
+          System.out.println(LocalDateTime.now() + ">>RemoteConfigRepository>>配置变化了返回新的");
           return result;
         } catch (ApolloConfigStatusCodeException ex) {
           ApolloConfigStatusCodeException statusCodeException = ex;
@@ -340,6 +347,7 @@ public class RemoteConfigRepository extends AbstractConfigRepository {
     m_executorService.submit(new Runnable() {
       @Override
       public void run() {
+        System.out.println(LocalDateTime.now() + ">>RemoteConfigRepository>>收到配置更新的通知，立即去拉配置");
         m_configNeedForceRefresh.set(true);
         trySync();
       }

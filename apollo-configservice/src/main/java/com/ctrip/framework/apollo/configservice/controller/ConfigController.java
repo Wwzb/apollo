@@ -42,6 +42,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -137,6 +138,7 @@ public class ConfigController {
             .collect(Collectors.joining(ConfigConsts.CLUSTER_NAMESPACE_SEPARATOR));
 
     if (mergedReleaseKey.equals(clientSideReleaseKey)) {
+      System.out.println(LocalDateTime.now() + ">>ConfigController>>客户端来读取配置了，但是配置没有变化，返回304");
       // Client side configuration is the same with server side, return 304
       response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
       Tracer.logEvent("Apollo.Config.NotModified",
@@ -150,6 +152,7 @@ public class ConfigController {
 
     Tracer.logEvent("Apollo.Config.Found", assembleKey(appId, appClusterNameLoaded,
         originalNamespace, dataCenter));
+    System.out.println(LocalDateTime.now() + ">>ConfigController>>客户端来读取配置了，返回全量配置");
     return apolloConfig;
   }
 

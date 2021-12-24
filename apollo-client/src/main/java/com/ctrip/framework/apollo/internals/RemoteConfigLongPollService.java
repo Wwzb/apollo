@@ -48,6 +48,7 @@ import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.gson.Gson;
 import java.lang.reflect.Type;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -156,6 +157,7 @@ public class RemoteConfigLongPollService {
     final Random random = new Random();
     ServiceDTO lastServiceDto = null;
     while (!m_longPollingStopped.get() && !Thread.currentThread().isInterrupted()) {
+      System.out.println(LocalDateTime.now() + ">>RemoteConfigLongPollService>>开始长轮询");
       if (!m_longPollRateLimiter.tryAcquire(5, TimeUnit.SECONDS)) {
         //wait at most 5 seconds
         try {
@@ -191,6 +193,7 @@ public class RemoteConfigLongPollService {
 
         logger.debug("Long polling response: {}, url: {}", response.getStatusCode(), url);
         if (response.getStatusCode() == 200 && response.getBody() != null) {
+          System.out.println(LocalDateTime.now() + ">>RemoteConfigLongPollService>>配置发生变化，通知所有监听者去拉取配置");
           updateNotifications(response.getBody());
           updateRemoteNotifications(response.getBody());
           transaction.addData("Result", response.getBody().toString());
@@ -199,6 +202,7 @@ public class RemoteConfigLongPollService {
 
         //try to load balance
         if (response.getStatusCode() == 304 && random.nextBoolean()) {
+          System.out.println(LocalDateTime.now() + ">>RemoteConfigLongPollService>>配置没有变化，收到服务端返回的304，开始下一次长轮询");
           lastServiceDto = null;
         }
 
